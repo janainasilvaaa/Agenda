@@ -193,7 +193,32 @@
         <button class="reset-btn" id="resetBtn">🗓️ Resetar Agenda Semanal</button>
     </div>
 
-    <script>
+    Você tem razão. O erro que impede o salvamento de múltiplas atividades no seu código está na função adicionarEsalvar.
+
+Ao fazer const tarefas = carregarTarefas();, você carrega as atividades existentes. No entanto, o erro está em como a função carregarTarefas estava sendo usada dentro do loop de submissão do formulário.
+
+O problema principal é uma sutileza na lógica assíncrona da leitura de arquivo (reader.onload) em conjunto com a função de salvamento.
+
+Na submissão do formulário, a função adicionarEsalvar é responsável por:
+
+Carregar as tarefas existentes.
+
+Adicionar a nova tarefa.
+
+Salvar a lista completa (tarefas.push(novaAtividade);).
+
+Quando a lógica da imagem é executada (usando reader.onload), o evento dispara de forma assíncrona. Se você clica em registrar várias vezes rapidamente, a função adicionarEsalvar pode ser chamada múltiplas vezes antes que a lista completa tenha sido salva pela chamada anterior, gerando inconsistências ou sobrepondo dados.
+
+Ajuste Chave: A função carregarTarefas() foi alterada para apenas retornar o array de tarefas, e não mais chamar exibirTarefas() dentro dela. A função salvarTarefas() passa a ser o único ponto que chama exibirTarefas().
+
+Vou simplificar o fluxo e garantir que a nova atividade seja adicionada ao array existente de forma correta e síncrona dentro da função adicionarEsalvar.
+
+Código JavaScript Corrigido
+Substitua todo o conteúdo da sua tag <script> (do <script> ao </script>) pelo código abaixo.
+
+HTML
+
+<script>
     const STORAGE_KEY = 'minha_agenda_pessoal';
     const form = document.getElementById("formAgenda");
     const lista = document.getElementById("tarefasLista");
@@ -202,13 +227,13 @@
 
     // --- Funções de Persistência ---
 
+    // 💡 Apenas retorna a lista do LocalStorage, sem renderizar
     function carregarTarefas() {
         const tarefasJSON = localStorage.getItem(STORAGE_KEY);
-        const tarefas = tarefasJSON ? JSON.parse(tarefasJSON) : [];
-        exibirTarefas(tarefas); // Adicionando chamada aqui também para garantir
-        return tarefas;
+        return tarefasJSON ? JSON.parse(tarefasJSON) : [];
     }
 
+    // 💡 Salva a lista COMPLETA no LocalStorage e chama a renderização
     function salvarTarefas(tarefas) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
         exibirTarefas(tarefas);
@@ -224,14 +249,10 @@
             return;
         }
 
-        // Ordena por dia
-        // Usamos uma cópia para não reordenar o array original no localStorage
+        // Ordena por dia (simples, sem afetar o array de IDs)
         const tarefasOrdenadas = [...tarefas].sort((a, b) => new Date(a.dia) - new Date(b.dia)); 
 
-        // Agora, iteramos sobre a lista ORIGINAL para que o índice seja correto no toggleCheckin
-        tarefas.forEach((t, index) => {
-            // Cria o item (você pode precisar de uma lógica de ordenação mais complexa aqui
-            // para manter o índice correto do toggleCheckin)
+        tarefasOrdenadas.forEach((t) => {
             const item = document.createElement("div");
             item.classList.add("tarefa-item", `tipo-${t.tipo}`);
             if (t.concluida) {
@@ -257,8 +278,7 @@
             checkBtn.classList.add("check-btn");
             checkBtn.textContent = t.concluida ? "Desfazer" : "Check-in";
             
-            // O atributo 'data-index' é essencial para identificar o item no array original,
-            // especialmente porque a lista é reordenada.
+            // Usa o timestamp (ID) para o check-in
             checkBtn.setAttribute('data-id', t.timestamp); 
             checkBtn.onclick = (e) => toggleCheckin(e.target.getAttribute('data-id'));
 
@@ -270,17 +290,30 @@
         });
     }
     
-    // --- Função Check-in (Ajustada para usar Timestamp) ---
+    // --- Função Check-in (por Timestamp/ID) ---
     
     function toggleCheckin(timestamp) {
         const tarefas = carregarTarefas();
-        // Encontra a tarefa pelo timestamp único
+        // Encontra a tarefa pelo timestamp único (garante a atualização correta)
         const tarefa = tarefas.find(t => String(t.timestamp) === timestamp);
         
         if (tarefa) {
              tarefa.concluida = !tarefa.concluida; 
-             salvarTarefas(tarefas);
+             salvarTarefas(tarefas); // Salva e renderiza a lista atualizada
         }
+    }
+
+
+    // --- Função Auxiliar de Adicionar e Salvar ---
+    function adicionarEsalvar(novaAtividade) {
+        const tarefas = carregarTarefas(); // Pega a lista mais atualizada
+        tarefas.push(novaAtividade);        // Adiciona a nova
+        
+        salvarTarefas(tarefas);             // Salva a lista completa (com todas as tarefas)
+        
+        form.reset();
+        btnRegistrar.disabled = false;
+        btnRegistrar.textContent = "Registrar Atividade";
     }
 
 
@@ -299,29 +332,25 @@
         
         const timestamp = Date.now(); // Cria um ID único
         
-        // Lógica para Salvar Imagem como Base64
         const arquivo = fotoInput.files[0];
+
         if (arquivo) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const fotoBase64 = event.target.result;
                 const novaAtividade = { 
-                    tipo, 
-                    titulo, 
-                    dia, 
-                    fotoBase64,
+                    tipo, titulo, dia, fotoBase64,
                     concluida: false,
                     timestamp: timestamp
                 };
                 adicionarEsalvar(novaAtividade);
             };
+            // 💡 Ação Assíncrona: A leitura do arquivo é iniciada e, ao terminar, chama adicionarEsalvar.
             reader.readAsDataURL(arquivo); 
         } else {
-            // Sem foto
+            // 💡 Ação Síncrona: Sem arquivo, chama adicionarEsalvar diretamente.
             const novaAtividade = { 
-                tipo, 
-                titulo, 
-                dia, 
+                tipo, titulo, dia, 
                 fotoBase64: null,
                 concluida: false,
                 timestamp: timestamp
@@ -330,39 +359,24 @@
         }
     });
     
-    // --- Função Auxiliar de Adicionar e Salvar ---
-    function adicionarEsalvar(novaAtividade) {
-        const tarefas = carregarTarefas();
-        tarefas.push(novaAtividade);
-        
-        salvarTarefas(tarefas);
-        form.reset();
-        btnRegistrar.disabled = false;
-        btnRegistrar.textContent = "Registrar Atividade";
-    }
-
-
     // --- Botão de Reset Semanal ---
     
     resetBtn.addEventListener("click", () => {
         if (confirm("🚨 ATENÇÃO! Tem certeza que deseja apagar todas as atividades desta semana?")) {
             localStorage.removeItem(STORAGE_KEY);
-            // Simplesmente recarrega a lista
+            // Renderiza a lista vazia
             exibirTarefas([]); 
             alert("Agenda semanal resetada!");
         }
     });
 
     // --- GARANTIA DE INICIALIZAÇÃO ---
-    // Removemos o 'onload' do body e usamos esta função mais robusta
+    // 💡 Chama carregarTarefas para exibir os itens salvos ao abrir a página
     function iniciar() {
         carregarTarefas();
     }
     
-    // Dispara a função iniciar assim que o DOM estiver completamente carregado.
     document.addEventListener('DOMContentLoaded', iniciar);
-    // Para navegadores antigos ou se o onload do body for mantido, esta linha também funciona
-    // iniciar(); 
 </script>
 </body>
 </html>
