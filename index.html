@@ -193,28 +193,6 @@
         <button class="reset-btn" id="resetBtn">🗓️ Resetar Agenda Semanal</button>
     </div>
 
-    Você tem razão. O erro que impede o salvamento de múltiplas atividades no seu código está na função adicionarEsalvar.
-
-Ao fazer const tarefas = carregarTarefas();, você carrega as atividades existentes. No entanto, o erro está em como a função carregarTarefas estava sendo usada dentro do loop de submissão do formulário.
-
-O problema principal é uma sutileza na lógica assíncrona da leitura de arquivo (reader.onload) em conjunto com a função de salvamento.
-
-Na submissão do formulário, a função adicionarEsalvar é responsável por:
-
-Carregar as tarefas existentes.
-
-Adicionar a nova tarefa.
-
-Salvar a lista completa (tarefas.push(novaAtividade);).
-
-Quando a lógica da imagem é executada (usando reader.onload), o evento dispara de forma assíncrona. Se você clica em registrar várias vezes rapidamente, a função adicionarEsalvar pode ser chamada múltiplas vezes antes que a lista completa tenha sido salva pela chamada anterior, gerando inconsistências ou sobrepondo dados.
-
-Ajuste Chave: A função carregarTarefas() foi alterada para apenas retornar o array de tarefas, e não mais chamar exibirTarefas() dentro dela. A função salvarTarefas() passa a ser o único ponto que chama exibirTarefas().
-
-Vou simplificar o fluxo e garantir que a nova atividade seja adicionada ao array existente de forma correta e síncrona dentro da função adicionarEsalvar.
-
-Código JavaScript Corrigido
-Substitua todo o conteúdo da sua tag <script> (do <script> ao </script>) pelo código abaixo.
 
 HTML
 
