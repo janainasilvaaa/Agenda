@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Agenda Pessoal</title>
+    
+    <style>
+        /* CSS para Estilo Pastel e Responsividade */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            /* Cores Pastéis */
+            --essencial: #f4b6c2; /* Rosa - Urgente/Essencial */
+            --urgente: #a084ca;   /* Roxo mais escuro - Urgente */
+            --longo-prazo: #d0e3f0; /* Azul - Longo Prazo */
+            --fundo: #f9f6f2; 
+            --texto: #444;
+            --branco: #fffaf5;
+            --sucesso: #a2dbb3;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: "Poppins", sans-serif;
+            background-color: var(--fundo);
+            color: var(--texto);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-top: 25px;
+            color: #6b5b95;
+            text-align: center;
+            font-size: 1.8rem;
+        }
+
+        .container {
+            background-color: var(--branco);
+            width: 90%;
+            max-width: 600px;
+            border-radius: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin: 20px auto;
+        }
+
+        /* Formulário e Inputs */
+        form { display: flex; flex-direction: column; gap: 12px; }
+        label { font-weight: 500; font-size: 0.95rem; }
+        input:not([type="checkbox"]), select {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background-color: #fefcfb;
+            outline: none;
+            font-size: 1rem;
+        }
+        input:focus, select:focus { border-color: var(--urgente); }
+        
+        /* Botões */
+        button {
+            background-color: var(--urgente);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover:not(:disabled) { background-color: #7b5da8; }
+        button:disabled { background-color: #ccc; cursor: wait; }
+
+        /* Lista de Tarefas */
+        .tarefas-lista { margin-top: 25px; }
+
+        .tarefa-item {
+            background-color: #fefcfb;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            border-left: 5px solid;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.2s ease;
+            position: relative; /* Para o botão Check-in */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .tarefa-item:hover { transform: scale(1.01); }
+
+        /* Cores de Prioridade */
+        .tipo-essencial { border-left-color: var(--essencial); background-color: var(--rosa-pastel); }
+        .tipo-urgente { border-left-color: var(--urgente); background-color: var(--longo-prazo); }
+        .tipo-longo-prazo { border-left-color: var(--longo-prazo); }
+        .tarefa-concluida { 
+            background-color: var(--sucesso);
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+
+        /* Foto */
+        .foto {
+            width: 55px;
+            height: 55px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid var(--urgente);
+            background-color: #fff;
+        }
+
+        .tarefa-conteudo { flex: 1; }
+        .tarefa-item h3 { margin: 0; font-size: 1rem; color: #6b5b95; }
+        .tarefa-item p { margin: 3px 0; font-size: 0.9rem; }
+        .sem-tarefas { text-align: center; color: #aaa; font-style: italic; }
+
+        /* Botão Check-in */
+        .check-btn {
+            background-color: var(--sucesso);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .check-btn:hover { background-color: #8bb398; }
+
+        /* Botão de Reset Semanal */
+        .reset-btn {
+            background-color: var(--essencial);
+            color: #444;
+            padding: 10px;
+            margin-top: 15px;
+        }
+        .reset-btn:hover { background-color: #f28ca0; color: white; }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.6rem; }
+            .container { padding: 20px; }
+            button, input, select { font-size: 0.95rem; }
+            .tarefa-item p { font-size: 0.85rem; }
+            .tarefa-item { flex-wrap: wrap; }
+            .check-btn { margin-left: auto; }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 1.4rem; }
+            input, select, button { font-size: 0.9rem; padding: 9px; }
+            .foto { width: 45px; height: 45px; }
+        }
+    </style>
+</head>
+<body onload="carregarTarefas()">
+    <h1>🗓️ Minha Agenda Pessoal</h1>
+    
+    <div class="container">
+        <form id="formAgenda">
+            <label for="tipo">Tipo de Atividade:</label>
+            <select id="tipo" required>
+                <option value="">Selecione a Prioridade</option>
+                <option value="essencial">Essencial</option>
+                <option value="urgente">Urgente</option>
+                <option value="longo-prazo">A Longo Prazo</option>
+            </select>
+            
+            <label for="titulo">Título da Atividade:</label>
+            <input type="text" id="titulo" placeholder="Ex: Estudar JS avançado" required>
+            
+            <label for="dia">Dia:</label>
+            <input type="date" id="dia" required>
+            
+            <label for="foto">Foto/Ícone (Upload Local):</label>
+            <input type="file" id="foto" accept="image/*">
+            
+            <button type="submit" id="btnRegistrar">Registrar Atividade</button>
+        </form>
+        
+        <div class="tarefas-lista" id="tarefasLista"></div>
+        
+        <button class="reset-btn" id="resetBtn">🗓️ Resetar Agenda Semanal</button>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'minha_agenda_pessoal';
+        const form = document.getElementById("formAgenda");
+        const lista = document.getElementById("tarefasLista");
+        const resetBtn = document.getElementById("resetBtn");
+        const btnRegistrar = document.getElementById("btnRegistrar");
+
+        // --- Funções de Persistência ---
+
+        function carregarTarefas() {
+            const tarefasJSON = localStorage.getItem(STORAGE_KEY);
+            return tarefasJSON ? JSON.parse(tarefasJSON) : [];
+        }
+
+        function salvarTarefas(tarefas) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
+            exibirTarefas(tarefas);
+        }
+
+        // --- Função de Renderização ---
+
+        function exibirTarefas(tarefas) {
+            lista.innerHTML = "";
+            
+            if (tarefas.length === 0) {
+                lista.innerHTML = '<p class="sem-tarefas">Nenhuma atividade registrada ainda.</p>';
+                return;
+            }
+
+            // Ordena (Ex: mais recentes ou por data/prioridade)
+            const tarefasOrdenadas = [...tarefas].sort((a, b) => new Date(a.dia) - new Date(b.dia)); 
+
+            tarefasOrdenadas.forEach((t, index) => {
+                const item = document.createElement("div");
+                item.classList.add("tarefa-item", `tipo-${t.tipo}`);
+                if (t.concluida) {
+                    item.classList.add("tarefa-concluida");
+                }
+
+                // Foto
+                const foto = document.createElement("img");
+                foto.classList.add("foto");
+                foto.src = t.fotoBase64 || "https://via.placeholder.com/55x55.png?text=Icone";
+
+                // Conteúdo
+                const conteudo = document.createElement("div");
+                conteudo.classList.add("tarefa-conteudo");
+                conteudo.innerHTML = `
+                    <h3>${t.titulo}</h3>
+                    <p><strong>Tipo:</strong> ${t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1).replace('-', ' ')}</p>
+                    <p><strong>Dia:</strong> ${t.dia}</p>
+                `;
+
+                // Botão de Check-in
+                const checkBtn = document.createElement("button");
+                checkBtn.classList.add("check-btn");
+                checkBtn.textContent = t.concluida ? "Desfazer" : "Check-in";
+                checkBtn.onclick = () => toggleCheckin(index);
+
+
+                item.appendChild(foto);
+                item.appendChild(conteudo);
+                item.appendChild(checkBtn);
+                lista.appendChild(item);
+            });
+        }
+        
+        // --- Função Check-in ---
+        
+        function toggleCheckin(index) {
+            const tarefas = carregarTarefas();
+            // Acha a tarefa pelo índice na lista *original*
+            tarefas[index].concluida = !tarefas[index].concluida; 
+            salvarTarefas(tarefas);
+        }
+
+
+        // --- Evento de Submissão do Formulário ---
+        
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            btnRegistrar.disabled = true;
+            btnRegistrar.textContent = "Salvando...";
+
+            const tipo = document.getElementById("tipo").value;
+            const titulo = document.getElementById("titulo").value.trim();
+            const dia = document.getElementById("dia").value;
+            const fotoInput = document.getElementById("foto");
+            
+            // Lógica para Salvar Imagem como Base64
+            const arquivo = fotoInput.files[0];
+            if (arquivo) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const fotoBase64 = event.target.result;
+                    const novaAtividade = { 
+                        tipo, 
+                        titulo, 
+                        dia, 
+                        fotoBase64,
+                        concluida: false,
+                        timestamp: Date.now()
+                    };
+                    adicionarEsalvar(novaAtividade);
+                };
+                // Começa a ler o arquivo e dispara o onload
+                reader.readAsDataURL(arquivo); 
+            } else {
+                // Sem foto
+                const novaAtividade = { 
+                    tipo, 
+                    titulo, 
+                    dia, 
+                    fotoBase64: null,
+                    concluida: false,
+                    timestamp: Date.now()
+                };
+                adicionarEsalvar(novaAtividade);
+            }
+        });
+        
+        // --- Função Auxiliar de Adicionar e Salvar ---
+        function adicionarEsalvar(novaAtividade) {
+            const tarefas = carregarTarefas();
+            tarefas.push(novaAtividade);
+            
+            salvarTarefas(tarefas);
+            form.reset();
+            btnRegistrar.disabled = false;
+            btnRegistrar.textContent = "Registrar Atividade";
+        }
+
+
+        // --- Botão de Reset Semanal ---
+        
+        resetBtn.addEventListener("click", () => {
+            if (confirm("🚨 ATENÇÃO! Tem certeza que deseja apagar todas as atividades desta semana?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                carregarTarefas(); // Recarrega a lista vazia
+                alert("Agenda semanal resetada!");
+            }
+        });
+
+        // Carrega as tarefas ao iniciar a página
+        function iniciar() {
+            carregarTarefas();
+        }
+        
+        iniciar();
+    </script>
+</body>
+</html>
