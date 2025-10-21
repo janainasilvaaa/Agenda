@@ -194,155 +194,175 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'minha_agenda_pessoal';
-        const form = document.getElementById("formAgenda");
-        const lista = document.getElementById("tarefasLista");
-        const resetBtn = document.getElementById("resetBtn");
-        const btnRegistrar = document.getElementById("btnRegistrar");
+    const STORAGE_KEY = 'minha_agenda_pessoal';
+    const form = document.getElementById("formAgenda");
+    const lista = document.getElementById("tarefasLista");
+    const resetBtn = document.getElementById("resetBtn");
+    const btnRegistrar = document.getElementById("btnRegistrar");
 
-        // --- Funções de Persistência ---
+    // --- Funções de Persistência ---
 
-        function carregarTarefas() {
-            const tarefasJSON = localStorage.getItem(STORAGE_KEY);
-            return tarefasJSON ? JSON.parse(tarefasJSON) : [];
+    function carregarTarefas() {
+        const tarefasJSON = localStorage.getItem(STORAGE_KEY);
+        const tarefas = tarefasJSON ? JSON.parse(tarefasJSON) : [];
+        exibirTarefas(tarefas); // Adicionando chamada aqui também para garantir
+        return tarefas;
+    }
+
+    function salvarTarefas(tarefas) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
+        exibirTarefas(tarefas);
+    }
+
+    // --- Função de Renderização ---
+
+    function exibirTarefas(tarefas) {
+        lista.innerHTML = "";
+        
+        if (tarefas.length === 0) {
+            lista.innerHTML = '<p class="sem-tarefas">Nenhuma atividade registrada ainda.</p>';
+            return;
         }
 
-        function salvarTarefas(tarefas) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
-            exibirTarefas(tarefas);
-        }
+        // Ordena por dia
+        // Usamos uma cópia para não reordenar o array original no localStorage
+        const tarefasOrdenadas = [...tarefas].sort((a, b) => new Date(a.dia) - new Date(b.dia)); 
 
-        // --- Função de Renderização ---
-
-        function exibirTarefas(tarefas) {
-            lista.innerHTML = "";
-            
-            if (tarefas.length === 0) {
-                lista.innerHTML = '<p class="sem-tarefas">Nenhuma atividade registrada ainda.</p>';
-                return;
+        // Agora, iteramos sobre a lista ORIGINAL para que o índice seja correto no toggleCheckin
+        tarefas.forEach((t, index) => {
+            // Cria o item (você pode precisar de uma lógica de ordenação mais complexa aqui
+            // para manter o índice correto do toggleCheckin)
+            const item = document.createElement("div");
+            item.classList.add("tarefa-item", `tipo-${t.tipo}`);
+            if (t.concluida) {
+                item.classList.add("tarefa-concluida");
             }
 
-            // Ordena (Ex: mais recentes ou por data/prioridade)
-            const tarefasOrdenadas = [...tarefas].sort((a, b) => new Date(a.dia) - new Date(b.dia)); 
+            // Foto
+            const foto = document.createElement("img");
+            foto.classList.add("foto");
+            foto.src = t.fotoBase64 || "https://via.placeholder.com/55x55.png?text=Icone";
 
-            tarefasOrdenadas.forEach((t, index) => {
-                const item = document.createElement("div");
-                item.classList.add("tarefa-item", `tipo-${t.tipo}`);
-                if (t.concluida) {
-                    item.classList.add("tarefa-concluida");
-                }
+            // Conteúdo
+            const conteudo = document.createElement("div");
+            conteudo.classList.add("tarefa-conteudo");
+            conteudo.innerHTML = `
+                <h3>${t.titulo}</h3>
+                <p><strong>Tipo:</strong> ${t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1).replace('-', ' ')}</p>
+                <p><strong>Dia:</strong> ${t.dia}</p>
+            `;
 
-                // Foto
-                const foto = document.createElement("img");
-                foto.classList.add("foto");
-                foto.src = t.fotoBase64 || "https://via.placeholder.com/55x55.png?text=Icone";
-
-                // Conteúdo
-                const conteudo = document.createElement("div");
-                conteudo.classList.add("tarefa-conteudo");
-                conteudo.innerHTML = `
-                    <h3>${t.titulo}</h3>
-                    <p><strong>Tipo:</strong> ${t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1).replace('-', ' ')}</p>
-                    <p><strong>Dia:</strong> ${t.dia}</p>
-                `;
-
-                // Botão de Check-in
-                const checkBtn = document.createElement("button");
-                checkBtn.classList.add("check-btn");
-                checkBtn.textContent = t.concluida ? "Desfazer" : "Check-in";
-                checkBtn.onclick = () => toggleCheckin(index);
-
-
-                item.appendChild(foto);
-                item.appendChild(conteudo);
-                item.appendChild(checkBtn);
-                lista.appendChild(item);
-            });
-        }
-        
-        // --- Função Check-in ---
-        
-        function toggleCheckin(index) {
-            const tarefas = carregarTarefas();
-            // Acha a tarefa pelo índice na lista *original*
-            tarefas[index].concluida = !tarefas[index].concluida; 
-            salvarTarefas(tarefas);
-        }
-
-
-        // --- Evento de Submissão do Formulário ---
-        
-        form.addEventListener("submit", (e) => {
-            e.preventDefault();
-
-            btnRegistrar.disabled = true;
-            btnRegistrar.textContent = "Salvando...";
-
-            const tipo = document.getElementById("tipo").value;
-            const titulo = document.getElementById("titulo").value.trim();
-            const dia = document.getElementById("dia").value;
-            const fotoInput = document.getElementById("foto");
+            // Botão de Check-in
+            const checkBtn = document.createElement("button");
+            checkBtn.classList.add("check-btn");
+            checkBtn.textContent = t.concluida ? "Desfazer" : "Check-in";
             
-            // Lógica para Salvar Imagem como Base64
-            const arquivo = fotoInput.files[0];
-            if (arquivo) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const fotoBase64 = event.target.result;
-                    const novaAtividade = { 
-                        tipo, 
-                        titulo, 
-                        dia, 
-                        fotoBase64,
-                        concluida: false,
-                        timestamp: Date.now()
-                    };
-                    adicionarEsalvar(novaAtividade);
-                };
-                // Começa a ler o arquivo e dispara o onload
-                reader.readAsDataURL(arquivo); 
-            } else {
-                // Sem foto
+            // O atributo 'data-index' é essencial para identificar o item no array original,
+            // especialmente porque a lista é reordenada.
+            checkBtn.setAttribute('data-id', t.timestamp); 
+            checkBtn.onclick = (e) => toggleCheckin(e.target.getAttribute('data-id'));
+
+
+            item.appendChild(foto);
+            item.appendChild(conteudo);
+            item.appendChild(checkBtn);
+            lista.appendChild(item);
+        });
+    }
+    
+    // --- Função Check-in (Ajustada para usar Timestamp) ---
+    
+    function toggleCheckin(timestamp) {
+        const tarefas = carregarTarefas();
+        // Encontra a tarefa pelo timestamp único
+        const tarefa = tarefas.find(t => String(t.timestamp) === timestamp);
+        
+        if (tarefa) {
+             tarefa.concluida = !tarefa.concluida; 
+             salvarTarefas(tarefas);
+        }
+    }
+
+
+    // --- Evento de Submissão do Formulário ---
+    
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        btnRegistrar.disabled = true;
+        btnRegistrar.textContent = "Salvando...";
+
+        const tipo = document.getElementById("tipo").value;
+        const titulo = document.getElementById("titulo").value.trim();
+        const dia = document.getElementById("dia").value;
+        const fotoInput = document.getElementById("foto");
+        
+        const timestamp = Date.now(); // Cria um ID único
+        
+        // Lógica para Salvar Imagem como Base64
+        const arquivo = fotoInput.files[0];
+        if (arquivo) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fotoBase64 = event.target.result;
                 const novaAtividade = { 
                     tipo, 
                     titulo, 
                     dia, 
-                    fotoBase64: null,
+                    fotoBase64,
                     concluida: false,
-                    timestamp: Date.now()
+                    timestamp: timestamp
                 };
                 adicionarEsalvar(novaAtividade);
-            }
-        });
-        
-        // --- Função Auxiliar de Adicionar e Salvar ---
-        function adicionarEsalvar(novaAtividade) {
-            const tarefas = carregarTarefas();
-            tarefas.push(novaAtividade);
-            
-            salvarTarefas(tarefas);
-            form.reset();
-            btnRegistrar.disabled = false;
-            btnRegistrar.textContent = "Registrar Atividade";
+            };
+            reader.readAsDataURL(arquivo); 
+        } else {
+            // Sem foto
+            const novaAtividade = { 
+                tipo, 
+                titulo, 
+                dia, 
+                fotoBase64: null,
+                concluida: false,
+                timestamp: timestamp
+            };
+            adicionarEsalvar(novaAtividade);
         }
-
-
-        // --- Botão de Reset Semanal ---
+    });
+    
+    // --- Função Auxiliar de Adicionar e Salvar ---
+    function adicionarEsalvar(novaAtividade) {
+        const tarefas = carregarTarefas();
+        tarefas.push(novaAtividade);
         
-        resetBtn.addEventListener("click", () => {
-            if (confirm("🚨 ATENÇÃO! Tem certeza que deseja apagar todas as atividades desta semana?")) {
-                localStorage.removeItem(STORAGE_KEY);
-                carregarTarefas(); // Recarrega a lista vazia
-                alert("Agenda semanal resetada!");
-            }
-        });
+        salvarTarefas(tarefas);
+        form.reset();
+        btnRegistrar.disabled = false;
+        btnRegistrar.textContent = "Registrar Atividade";
+    }
 
-        // Carrega as tarefas ao iniciar a página
-        function iniciar() {
-            carregarTarefas();
+
+    // --- Botão de Reset Semanal ---
+    
+    resetBtn.addEventListener("click", () => {
+        if (confirm("🚨 ATENÇÃO! Tem certeza que deseja apagar todas as atividades desta semana?")) {
+            localStorage.removeItem(STORAGE_KEY);
+            // Simplesmente recarrega a lista
+            exibirTarefas([]); 
+            alert("Agenda semanal resetada!");
         }
-        
-        iniciar();
-    </script>
+    });
+
+    // --- GARANTIA DE INICIALIZAÇÃO ---
+    // Removemos o 'onload' do body e usamos esta função mais robusta
+    function iniciar() {
+        carregarTarefas();
+    }
+    
+    // Dispara a função iniciar assim que o DOM estiver completamente carregado.
+    document.addEventListener('DOMContentLoaded', iniciar);
+    // Para navegadores antigos ou se o onload do body for mantido, esta linha também funciona
+    // iniciar(); 
+</script>
 </body>
 </html>
