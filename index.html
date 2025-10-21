@@ -205,19 +205,40 @@
 
     // --- Funções de Persistência ---
 
-    // 💡 Apenas retorna a lista do LocalStorage, sem renderizar
+    // 💡 Função de carregamento com tratamento de erro
     function carregarTarefas() {
-        const tarefasJSON = localStorage.getItem(STORAGE_KEY);
-        return tarefasJSON ? JSON.parse(tarefasJSON) : [];
+        try {
+            const tarefasJSON = localStorage.getItem(STORAGE_KEY);
+            // Se o JSON for null (nada salvo), retorna um array vazio.
+            if (!tarefasJSON) {
+                console.log("LocalStorage vazio. Retornando array vazio.");
+                return [];
+            }
+            // Tenta fazer o parse do JSON.
+            const tarefas = JSON.parse(tarefasJSON);
+            console.log(`Tarefas carregadas: ${tarefas.length} atividades.`);
+            // Garante que é um array, mesmo se o parse falhar estranhamente.
+            return Array.isArray(tarefas) ? tarefas : [];
+        } catch (e) {
+            console.error("Erro ao carregar tarefas do LocalStorage:", e);
+            // Se houver erro, pode ser que os dados estejam corrompidos. Retorna vazio.
+            return [];
+        }
     }
 
-    // 💡 Salva a lista COMPLETA no LocalStorage e chama a renderização
+    // 💡 Salva a lista COMPLETA e chama a renderização
     function salvarTarefas(tarefas) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
-        exibirTarefas(tarefas);
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
+            console.log(`Tarefas salvas: ${tarefas.length} atividades.`);
+            exibirTarefas(tarefas);
+        } catch (e) {
+            console.error("Erro ao salvar tarefas no LocalStorage:", e);
+            alert("Erro ao salvar dados. LocalStorage pode estar cheio ou inacessível.");
+        }
     }
 
-    // --- Função de Renderização ---
+    // --- Função de Renderização (Mantida) ---
 
     function exibirTarefas(tarefas) {
         lista.innerHTML = "";
@@ -227,7 +248,7 @@
             return;
         }
 
-        // Ordena por dia (simples, sem afetar o array de IDs)
+        // Ordena por dia
         const tarefasOrdenadas = [...tarefas].sort((a, b) => new Date(a.dia) - new Date(b.dia)); 
 
         tarefasOrdenadas.forEach((t) => {
@@ -240,6 +261,7 @@
             // Foto
             const foto = document.createElement("img");
             foto.classList.add("foto");
+            // Se fotoBase64 for null, usa o placeholder.
             foto.src = t.fotoBase64 || "https://via.placeholder.com/55x55.png?text=Icone";
 
             // Conteúdo
@@ -256,7 +278,6 @@
             checkBtn.classList.add("check-btn");
             checkBtn.textContent = t.concluida ? "Desfazer" : "Check-in";
             
-            // Usa o timestamp (ID) para o check-in
             checkBtn.setAttribute('data-id', t.timestamp); 
             checkBtn.onclick = (e) => toggleCheckin(e.target.getAttribute('data-id'));
 
@@ -268,26 +289,26 @@
         });
     }
     
-    // --- Função Check-in (por Timestamp/ID) ---
+    // --- Função Check-in (Mantida) ---
     
     function toggleCheckin(timestamp) {
         const tarefas = carregarTarefas();
-        // Encontra a tarefa pelo timestamp único (garante a atualização correta)
         const tarefa = tarefas.find(t => String(t.timestamp) === timestamp);
         
         if (tarefa) {
              tarefa.concluida = !tarefa.concluida; 
-             salvarTarefas(tarefas); // Salva e renderiza a lista atualizada
+             salvarTarefas(tarefas);
         }
     }
 
 
     // --- Função Auxiliar de Adicionar e Salvar ---
+    // Esta função é o coração do salvamento e foi ajustada para ser síncrona/assíncrona.
     function adicionarEsalvar(novaAtividade) {
-        const tarefas = carregarTarefas(); // Pega a lista mais atualizada
-        tarefas.push(novaAtividade);        // Adiciona a nova
+        const tarefas = carregarTarefas(); 
+        tarefas.push(novaAtividade);        
         
-        salvarTarefas(tarefas);             // Salva a lista completa (com todas as tarefas)
+        salvarTarefas(tarefas);             
         
         form.reset();
         btnRegistrar.disabled = false;
@@ -295,7 +316,7 @@
     }
 
 
-    // --- Evento de Submissão do Formulário ---
+    // --- Evento de Submissão do Formulário (Mantido) ---
     
     form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -308,7 +329,7 @@
         const dia = document.getElementById("dia").value;
         const fotoInput = document.getElementById("foto");
         
-        const timestamp = Date.now(); // Cria um ID único
+        const timestamp = Date.now(); 
         
         const arquivo = fotoInput.files[0];
 
@@ -321,12 +342,18 @@
                     concluida: false,
                     timestamp: timestamp
                 };
+                // Chamada Assíncrona: Executada APÓS a leitura do arquivo
                 adicionarEsalvar(novaAtividade);
             };
-            // 💡 Ação Assíncrona: A leitura do arquivo é iniciada e, ao terminar, chama adicionarEsalvar.
+            reader.onerror = function(error) {
+                console.error("Erro ao ler o arquivo de imagem:", error);
+                alert("Erro ao ler a imagem. Tente novamente ou sem imagem.");
+                btnRegistrar.disabled = false;
+                btnRegistrar.textContent = "Registrar Atividade";
+            }
             reader.readAsDataURL(arquivo); 
         } else {
-            // 💡 Ação Síncrona: Sem arquivo, chama adicionarEsalvar diretamente.
+            // Chamada Síncrona: Executada IMEDIATAMENTE
             const novaAtividade = { 
                 tipo, titulo, dia, 
                 fotoBase64: null,
@@ -337,19 +364,17 @@
         }
     });
     
-    // --- Botão de Reset Semanal ---
+    // --- Botão de Reset Semanal (Mantido) ---
     
     resetBtn.addEventListener("click", () => {
         if (confirm("🚨 ATENÇÃO! Tem certeza que deseja apagar todas as atividades desta semana?")) {
             localStorage.removeItem(STORAGE_KEY);
-            // Renderiza a lista vazia
             exibirTarefas([]); 
             alert("Agenda semanal resetada!");
         }
     });
 
     // --- GARANTIA DE INICIALIZAÇÃO ---
-    // 💡 Chama carregarTarefas para exibir os itens salvos ao abrir a página
     function iniciar() {
         carregarTarefas();
     }
